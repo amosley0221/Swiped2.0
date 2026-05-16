@@ -1,4 +1,4 @@
-const CACHE_NAME = "swiped-v15";
+const CACHE_NAME = "swiped-v16";
 const APP_SHELL = [
   "./",
   "./index.html",
