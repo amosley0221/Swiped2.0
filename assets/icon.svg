@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Swiped icon">
+  <rect width="512" height="512" rx="112" fill="#050505"/>
+  <path d="M92 348c36-82 88-126 157-132 69-7 126 23 171 90 13 19-10 42-29 29-41-28-83-40-126-35-43 4-81 25-115 63-20 23-70 15-58-15z" fill="#ffffff"/>
+  <circle cx="180" cy="193" r="36" fill="#2ecf85"/>
+  <circle cx="260" cy="165" r="24" fill="#ffba49"/>
+  <circle cx="328" cy="199" r="30" fill="#4aa8ff"/>
+  <path d="M150 382c48 24 102 32 161 24 42-6 78-18 109-36 20-11 38 16 20 30-44 33-99 50-164 51-63 1-112-13-146-41-16-13 2-38 20-28z" fill="#ffffff" opacity=".72"/>
+</svg>

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#050505" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Swiped" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Swiped</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="assets/icon.svg" />
+    <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css?v=14" />
+  </head>
+  <body>
+    <div class="app-shell" id="appShell">
+      <header class="topbar">
+        <div>
+          <p class="brand">Swiped</p>
+          <h1 id="activeTitle">Work</h1>
+        </div>
+        <div class="top-actions">
+          <button class="icon-button" id="settingsButton" type="button" aria-label="Section settings" title="Section settings">
+            <span class="settings-glyph" aria-hidden="true"></span>
+          </button>
+          <button class="icon-button" id="editSectionButton" type="button" aria-label="Customize section" title="Customize section">
+            <span class="edit-glyph" aria-hidden="true"></span>
+          </button>
+        </div>
+      </header>
+
+      <main class="summary-space" id="summarySpace" aria-live="polite">
+        <section class="section-intro">
+          <div class="accent-orbit" aria-hidden="true">
+            <div class="summary-icon" id="summaryIcon"></div>
+          </div>
+          <p class="section-kicker" id="sectionKicker">Today</p>
+          <h2 id="summaryHeadline"></h2>
+          <p id="summaryText"></p>
+        </section>
+
+        <section class="metric-strip" id="metricStrip" aria-label="Section snapshot"></section>
+
+        <section class="brief-list" id="briefList">
+          <div class="brief-list-header">
+            <h3>Next</h3>
+            <span id="sectionCount"></span>
+          </div>
+          <div id="briefItems"></div>
+        </section>
+      </main>
+
+      <div class="paint-layer" id="paintLayer" aria-hidden="true">
+        <div class="paint-sheen" aria-hidden="true"></div>
+      </div>
+
+      <section class="detail-view" id="detailView" aria-hidden="true">
+        <header class="detail-topbar">
+          <button class="detail-close" id="closeDetailButton" type="button" aria-label="Close details" title="Close details">
+            <span aria-hidden="true"></span>
+          </button>
+          <p id="detailLabel">Work</p>
+          <button class="detail-edit" id="detailEditButton" type="button" aria-label="Customize section" title="Customize section">
+            <span class="edit-glyph" aria-hidden="true"></span>
+          </button>
+        </header>
+        <div class="detail-content" id="detailContent">
+          <p class="detail-kicker" id="detailKicker"></p>
+          <h2 id="detailTitle"></h2>
+          <p id="detailSummary"></p>
+          <div class="detail-grid" id="detailGrid"></div>
+          <section class="notes-panel">
+            <h3 id="notesPanelTitle">Important Notes</h3>
+            <div id="detailNotes"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="wheel-zone" id="wheelZone" aria-label="Section wheel">
+        <div class="wheel-scrubber-wrap" id="wheelScrubberWrap" hidden>
+          <input class="wheel-scrubber" id="wheelScrubber" type="range" min="0" max="0" value="0" aria-label="Quick section scrubber" />
+        </div>
+        <div class="wheel-glow" aria-hidden="true"></div>
+        <div class="wheel-shell">
+          <div class="wheel-center-mark" aria-hidden="true"></div>
+          <div class="wheel-items" id="wheelItems"></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="editor-backdrop" id="editorBackdrop" hidden>
+      <form class="editor-sheet" id="editorForm">
+        <header>
+          <h2>Customize</h2>
+          <button class="sheet-close" id="closeEditorButton" type="button" aria-label="Close" title="Close">
+            <span aria-hidden="true"></span>
+          </button>
+        </header>
+
+        <div class="icon-upload">
+          <div class="icon-preview" id="editorIconPreview" aria-hidden="true"></div>
+          <div class="icon-upload-actions">
+            <label class="file-button" for="iconInput">Upload Icon</label>
+            <input id="iconInput" type="file" accept="image/*" hidden />
+            <button class="ghost-button compact-button" id="resetIconButton" type="button">Default Icon</button>
+          </div>
+        </div>
+
+        <label>
+          <span>Name</span>
+          <input id="nameInput" name="name" maxlength="18" autocomplete="off" required />
+        </label>
+
+        <label>
+          <span>Headline</span>
+          <input id="headlineInput" name="headline" maxlength="58" autocomplete="off" required />
+        </label>
+
+        <label>
+          <span>Brief</span>
+          <textarea id="briefInput" name="brief" rows="3" maxlength="170" required></textarea>
+        </label>
+
+        <label>
+          <span>Notes</span>
+          <textarea id="notesInput" name="notes" rows="5" maxlength="360"></textarea>
+        </label>
+
+        <fieldset class="color-field">
+          <legend>Accent</legend>
+          <div class="swatches" id="swatches"></div>
+        </fieldset>
+
+        <div class="sheet-actions">
+          <button class="ghost-button" id="hideSectionButton" type="button">Hide</button>
+          <button class="primary-button" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="editor-backdrop" id="settingsBackdrop" hidden>
+      <section class="editor-sheet settings-sheet" aria-label="Section settings">
+        <header>
+          <h2>Sections</h2>
+          <button class="sheet-close" id="closeSettingsButton" type="button" aria-label="Close settings" title="Close settings">
+            <span aria-hidden="true"></span>
+          </button>
+        </header>
+        <label>
+          <span>First Name</span>
+          <input id="firstNameInput" maxlength="24" autocomplete="given-name" />
+        </label>
+        <div class="settings-add-actions">
+          <button class="ghost-button compact-button" id="addPersonButton" type="button">Add Person</button>
+          <button class="ghost-button compact-button" id="addJobButton" type="button">Add Job</button>
+        </div>
+        <div class="settings-list" id="settingsList"></div>
+        <div class="sheet-actions">
+          <button class="primary-button" id="doneSettingsButton" type="button">Done</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="app.js?v=14" defer></script>
+  </body>
+</html>
