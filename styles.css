@@ -1301,6 +1301,18 @@ button {
   gap: 10px;
 }
 
+.auth-form[hidden],
+.auth-session[hidden],
+.auth-reset[hidden] {
+  display: none;
+}
+
+.auth-session p {
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 760;
+}
+
 .auth-actions {
   display: flex;
   flex-wrap: wrap;

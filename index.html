@@ -12,7 +12,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="assets/icon.svg" />
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=17" />
+    <link rel="stylesheet" href="styles.css?v=18" />
   </head>
   <body>
     <div class="app-shell" id="appShell">
@@ -155,8 +155,8 @@
         <section class="auth-panel" id="authPanel" aria-label="Login and sync">
           <header>
             <div>
-              <h3>Login</h3>
-              <p id="authStatus">Sync is local only</p>
+              <h3 id="authHeading">Login</h3>
+              <p id="authStatus">Not signed in - sync is local only</p>
             </div>
             <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
           </header>
@@ -168,6 +168,10 @@
             <label>
               <span>Password</span>
               <input id="authPasswordInput" type="password" autocomplete="current-password" minlength="6" />
+            </label>
+            <label class="checkbox-row">
+              <input id="showPasswordInput" type="checkbox" />
+              <span>Show password</span>
             </label>
             <label class="checkbox-row">
               <input id="authKeepInput" type="checkbox" checked />
@@ -196,6 +200,10 @@
               <span>Confirm Password</span>
               <input id="confirmPasswordInput" type="password" autocomplete="new-password" minlength="6" />
             </label>
+            <label class="checkbox-row">
+              <input id="showResetPasswordInput" type="checkbox" />
+              <span>Show passwords</span>
+            </label>
             <div class="auth-actions">
               <button class="primary-button compact-button" id="updatePasswordButton" type="button">Save Password</button>
               <button class="ghost-button compact-button" id="cancelPasswordResetButton" type="button">Cancel</button>
@@ -214,6 +222,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="app.js?v=17" defer></script>
+    <script src="app.js?v=18" defer></script>
   </body>
 </html>

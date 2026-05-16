@@ -324,7 +324,7 @@ const state = {
   auth: {
     ...loadAuthSettings(),
     session: null,
-    status: "Sync is local only",
+    status: "Not signed in - sync is local only",
     busy: false,
     recovering: false,
     showPasswordReset: false
@@ -382,11 +382,13 @@ const els = {
   settingsList: document.getElementById("settingsList"),
   firstNameInput: document.getElementById("firstNameInput"),
   authStatus: document.getElementById("authStatus"),
+  authHeading: document.getElementById("authHeading"),
   syncDot: document.getElementById("syncDot"),
   authSignedOut: document.getElementById("authSignedOut"),
   authSignedIn: document.getElementById("authSignedIn"),
   authEmailInput: document.getElementById("authEmailInput"),
   authPasswordInput: document.getElementById("authPasswordInput"),
+  showPasswordInput: document.getElementById("showPasswordInput"),
   authKeepInput: document.getElementById("authKeepInput"),
   authAccountEmail: document.getElementById("authAccountEmail"),
   signInButton: document.getElementById("signInButton"),
@@ -398,6 +400,7 @@ const els = {
   authResetPanel: document.getElementById("authResetPanel"),
   newPasswordInput: document.getElementById("newPasswordInput"),
   confirmPasswordInput: document.getElementById("confirmPasswordInput"),
+  showResetPasswordInput: document.getElementById("showResetPasswordInput"),
   updatePasswordButton: document.getElementById("updatePasswordButton"),
   cancelPasswordResetButton: document.getElementById("cancelPasswordResetButton"),
   addPersonButton: document.getElementById("addPersonButton"),
@@ -1909,7 +1912,7 @@ async function initializeSupabase() {
     state.auth.status = "Enter a new password";
     openSettings();
   } else {
-    state.auth.status = data.session ? "Signed in" : "Sync is local only";
+    state.auth.status = data.session ? "Signed in" : "Not signed in - sync is local only";
   }
   renderAuthPanel();
   if (data.session && !state.auth.recovering) pullCloudState();
@@ -1922,7 +1925,7 @@ async function initializeSupabase() {
       state.auth.status = "Enter a new password";
       openSettings();
     } else {
-      state.auth.status = session ? "Signed in" : "Sync is local only";
+      state.auth.status = session ? "Signed in" : "Not signed in - sync is local only";
     }
     renderAuthPanel();
 
@@ -1937,13 +1940,15 @@ function renderAuthPanel() {
 
   const signedIn = Boolean(state.auth.session?.user);
   const showPasswordReset = state.auth.showPasswordReset || state.auth.recovering;
+  const accountEmail = state.auth.session?.user?.email || "";
   els.authSignedOut.hidden = signedIn;
   els.authSignedIn.hidden = !signedIn;
   els.authResetPanel.hidden = !showPasswordReset;
+  els.authHeading.textContent = signedIn ? "Account" : "Login";
   els.authKeepInput.checked = state.auth.keepLoggedIn;
-  els.authStatus.textContent = state.auth.status || state.sync.message || "Sync is local only";
+  els.authStatus.textContent = state.auth.status || state.sync.message || (signedIn ? "Cloud sync active" : "Not signed in - sync is local only");
   els.syncDot.className = `sync-dot${signedIn ? " is-online" : ""}${state.auth.status.includes("failed") ? " is-error" : ""}`;
-  els.authAccountEmail.textContent = signedIn ? state.auth.session.user.email || "Signed in" : "";
+  els.authAccountEmail.textContent = signedIn ? `Signed in as ${accountEmail || "this account"}` : "";
   els.signInButton.disabled = state.auth.busy;
   els.signUpButton.disabled = state.auth.busy;
   els.resetPasswordButton.disabled = state.auth.busy;
@@ -2053,7 +2058,9 @@ function cancelPasswordReset() {
   state.auth.recovering = false;
   els.newPasswordInput.value = "";
   els.confirmPasswordInput.value = "";
-  state.auth.status = state.auth.session ? "Signed in" : "Sync is local only";
+  els.showResetPasswordInput.checked = false;
+  updatePasswordVisibility();
+  state.auth.status = state.auth.session ? "Signed in" : "Not signed in - sync is local only";
   renderAuthPanel();
 }
 
@@ -2096,6 +2103,8 @@ async function updatePassword() {
   state.auth.showPasswordReset = false;
   els.newPasswordInput.value = "";
   els.confirmPasswordInput.value = "";
+  els.showResetPasswordInput.checked = false;
+  updatePasswordVisibility();
   state.auth.status = "Password updated";
   renderAuthPanel();
 }
@@ -2118,8 +2127,17 @@ async function signOut() {
   state.auth.session = null;
   state.auth.recovering = false;
   state.auth.showPasswordReset = false;
-  state.auth.status = "Sync is local only";
+  els.showResetPasswordInput.checked = false;
+  updatePasswordVisibility();
+  state.auth.status = "Not signed in - sync is local only";
   renderAuthPanel();
+}
+
+function updatePasswordVisibility() {
+  els.authPasswordInput.type = els.showPasswordInput.checked ? "text" : "password";
+  const resetType = els.showResetPasswordInput.checked ? "text" : "password";
+  els.newPasswordInput.type = resetType;
+  els.confirmPasswordInput.type = resetType;
 }
 
 function renderSettings() {
@@ -2513,6 +2531,8 @@ els.authKeepInput.addEventListener("change", () => {
   state.auth.keepLoggedIn = els.authKeepInput.checked;
   saveAuthSettings();
 });
+els.showPasswordInput.addEventListener("change", updatePasswordVisibility);
+els.showResetPasswordInput.addEventListener("change", updatePasswordVisibility);
 els.signInButton.addEventListener("click", () => submitAuthForm("sign-in"));
 els.signUpButton.addEventListener("click", () => submitAuthForm("sign-up"));
 els.resetPasswordButton.addEventListener("click", requestPasswordReset);
@@ -2562,6 +2582,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && state.auth.session) pullCloudState();
 });
 
+updatePasswordVisibility();
 render();
 initializeSupabase();
 registerServiceWorker();
