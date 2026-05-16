@@ -23,3 +23,5 @@ For account confirmation emails, add the deployed Render URL to Supabase Auth:
 2. Go to **Authentication** > **URL Configuration**.
 3. Set **Site URL** to the Render app URL.
 4. Add the same Render URL to **Redirect URLs**.
+
+Password reset emails use the same redirect URL. After a user opens the reset link, Swiped shows the new-password form in Settings.

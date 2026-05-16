@@ -1295,7 +1295,8 @@ button {
 }
 
 .auth-form,
-.auth-session {
+.auth-session,
+.auth-reset {
   display: grid;
   gap: 10px;
 }
