@@ -12,7 +12,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="assets/icon.svg" />
     <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=14" />
+    <link rel="stylesheet" href="styles.css?v=15" />
   </head>
   <body>
     <div class="app-shell" id="appShell">
@@ -152,6 +152,40 @@
           <span>First Name</span>
           <input id="firstNameInput" maxlength="24" autocomplete="given-name" />
         </label>
+        <section class="auth-panel" id="authPanel" aria-label="Login and sync">
+          <header>
+            <div>
+              <h3>Login</h3>
+              <p id="authStatus">Sync is local only</p>
+            </div>
+            <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
+          </header>
+          <div class="auth-form" id="authSignedOut">
+            <label>
+              <span>Email</span>
+              <input id="authEmailInput" type="email" autocomplete="email" inputmode="email" />
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="authPasswordInput" type="password" autocomplete="current-password" minlength="6" />
+            </label>
+            <label class="checkbox-row">
+              <input id="authKeepInput" type="checkbox" checked />
+              <span>Stay logged in</span>
+            </label>
+            <div class="auth-actions">
+              <button class="primary-button compact-button" id="signInButton" type="button">Sign In</button>
+              <button class="ghost-button compact-button" id="signUpButton" type="button">Create Account</button>
+            </div>
+          </div>
+          <div class="auth-session" id="authSignedIn" hidden>
+            <p id="authAccountEmail"></p>
+            <div class="auth-actions">
+              <button class="ghost-button compact-button" id="syncNowButton" type="button">Sync Now</button>
+              <button class="ghost-button compact-button" id="signOutButton" type="button">Sign Out</button>
+            </div>
+          </div>
+        </section>
         <div class="settings-add-actions">
           <button class="ghost-button compact-button" id="addPersonButton" type="button">Add Person</button>
           <button class="ghost-button compact-button" id="addJobButton" type="button">Add Job</button>
@@ -163,6 +197,7 @@
       </section>
     </div>
 
-    <script src="app.js?v=14" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="app.js?v=15" defer></script>
   </body>
 </html>

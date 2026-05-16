@@ -2,6 +2,12 @@ const STORAGE_KEY = "swiped.sections.v8";
 const LEGACY_STORAGE_KEY = "swiped.sections.v1";
 const PROFILE_STORAGE_KEY = "swiped.profile.v1";
 const BUDGET_STORAGE_KEY = "swiped.budget.v1";
+const SYNC_META_STORAGE_KEY = "swiped.sync.v1";
+const AUTH_SETTINGS_STORAGE_KEY = "swiped.auth.v1";
+const SUPABASE_URL = "https://vzvhokeusirmfdphibny.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_dtiuT84yho_7NDUJUyEk9Q_XXZhmGdF";
+const USER_DATA_TABLE = "user_data";
+const SYNC_SAVE_DELAY = 700;
 const OPEN_PULL_THRESHOLD = 0.34;
 const DEFAULT_VISIBLE_ORDER = ["budget", "home", "notes"];
 const TODAY = new Date();
@@ -313,7 +319,17 @@ const state = {
   detailOpen: false,
   detailPointer: null,
   selectedColor: null,
-  pendingIconImage: ""
+  pendingIconImage: "",
+  sync: loadSyncMeta(),
+  auth: {
+    ...loadAuthSettings(),
+    session: null,
+    status: "Sync is local only",
+    busy: false
+  },
+  supabaseClient: null,
+  supabasePersisting: null,
+  syncTimer: null
 };
 
 const els = {
@@ -363,6 +379,18 @@ const els = {
   doneSettingsButton: document.getElementById("doneSettingsButton"),
   settingsList: document.getElementById("settingsList"),
   firstNameInput: document.getElementById("firstNameInput"),
+  authStatus: document.getElementById("authStatus"),
+  syncDot: document.getElementById("syncDot"),
+  authSignedOut: document.getElementById("authSignedOut"),
+  authSignedIn: document.getElementById("authSignedIn"),
+  authEmailInput: document.getElementById("authEmailInput"),
+  authPasswordInput: document.getElementById("authPasswordInput"),
+  authKeepInput: document.getElementById("authKeepInput"),
+  authAccountEmail: document.getElementById("authAccountEmail"),
+  signInButton: document.getElementById("signInButton"),
+  signUpButton: document.getElementById("signUpButton"),
+  signOutButton: document.getElementById("signOutButton"),
+  syncNowButton: document.getElementById("syncNowButton"),
   addPersonButton: document.getElementById("addPersonButton"),
   addJobButton: document.getElementById("addJobButton")
 };
@@ -478,6 +506,7 @@ function getTemplate(templateId) {
 function saveSections() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.sections));
+    markLocalChanged();
   } catch (error) {
     window.alert("That image is too large to save here. Try a smaller icon or picture.");
     console.warn("Could not save sections", error);
@@ -495,6 +524,7 @@ function loadProfile() {
 
 function saveProfile() {
   localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(state.profile));
+  markLocalChanged();
 }
 
 function loadBudget() {
@@ -526,6 +556,166 @@ function normalizeList(list, fallback) {
 
 function saveBudget() {
   localStorage.setItem(BUDGET_STORAGE_KEY, JSON.stringify(state.budget));
+  markLocalChanged();
+}
+
+function loadSyncMeta() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SYNC_META_STORAGE_KEY));
+    return {
+      localUpdatedAt: saved?.localUpdatedAt || "",
+      remoteUpdatedAt: saved?.remoteUpdatedAt || "",
+      lastSyncedAt: saved?.lastSyncedAt || "",
+      message: saved?.message || ""
+    };
+  } catch (error) {
+    return { localUpdatedAt: "", remoteUpdatedAt: "", lastSyncedAt: "", message: "" };
+  }
+}
+
+function saveSyncMeta() {
+  localStorage.setItem(SYNC_META_STORAGE_KEY, JSON.stringify({
+    localUpdatedAt: state.sync.localUpdatedAt,
+    remoteUpdatedAt: state.sync.remoteUpdatedAt,
+    lastSyncedAt: state.sync.lastSyncedAt,
+    message: state.sync.message || ""
+  }));
+}
+
+function loadAuthSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(AUTH_SETTINGS_STORAGE_KEY));
+    return { keepLoggedIn: saved?.keepLoggedIn !== false };
+  } catch (error) {
+    return { keepLoggedIn: true };
+  }
+}
+
+function saveAuthSettings() {
+  localStorage.setItem(AUTH_SETTINGS_STORAGE_KEY, JSON.stringify({
+    keepLoggedIn: state.auth.keepLoggedIn
+  }));
+}
+
+function markLocalChanged() {
+  if (!state?.sync || state.sync.applyingRemote) return;
+  state.sync.localUpdatedAt = new Date().toISOString();
+  state.sync.message = "Waiting to sync";
+  saveSyncMeta();
+  queueCloudSave();
+}
+
+function serializeAppState(updatedAt = state.sync.localUpdatedAt || new Date().toISOString()) {
+  return {
+    version: 1,
+    updatedAt,
+    profile: state.profile,
+    sections: state.sections,
+    budget: state.budget
+  };
+}
+
+function applySyncedState(data = {}, remoteUpdatedAt = new Date().toISOString()) {
+  state.sync.applyingRemote = true;
+  state.sections = ensureHome((Array.isArray(data.sections) ? data.sections : []).map((section) => normalizeSection(section)));
+  if (!state.sections.length) {
+    state.sections = loadSections();
+  }
+  state.profile = { firstName: data.profile?.firstName || "Antonio" };
+  state.budget = normalizeBudget(data.budget || defaultBudgetData());
+  state.sync.localUpdatedAt = data.updatedAt || remoteUpdatedAt;
+  state.sync.remoteUpdatedAt = remoteUpdatedAt;
+  state.sync.lastSyncedAt = new Date().toISOString();
+  state.sync.message = "Synced";
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.sections));
+  localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(state.profile));
+  localStorage.setItem(BUDGET_STORAGE_KEY, JSON.stringify(state.budget));
+  saveSyncMeta();
+
+  state.sync.applyingRemote = false;
+  keepActiveSectionVisible();
+  render();
+  renderAuthPanel();
+}
+
+function queueCloudSave(delay = SYNC_SAVE_DELAY) {
+  if (!state?.auth?.session || !state.supabaseClient) {
+    renderAuthPanel();
+    return;
+  }
+
+  window.clearTimeout(state.syncTimer);
+  state.syncTimer = window.setTimeout(saveCloudState, delay);
+  renderAuthPanel();
+}
+
+async function saveCloudState() {
+  if (!state.auth.session?.user || !state.supabaseClient) return;
+
+  const updatedAt = state.sync.localUpdatedAt || new Date().toISOString();
+  state.auth.status = "Syncing...";
+  renderAuthPanel();
+
+  const { error } = await state.supabaseClient
+    .from(USER_DATA_TABLE)
+    .upsert({
+      user_id: state.auth.session.user.id,
+      data: serializeAppState(updatedAt),
+      updated_at: updatedAt
+    }, { onConflict: "user_id" });
+
+  if (error) {
+    state.auth.status = "Sync failed";
+    state.sync.message = error.message;
+    saveSyncMeta();
+    renderAuthPanel();
+    return;
+  }
+
+  state.sync.remoteUpdatedAt = updatedAt;
+  state.sync.lastSyncedAt = new Date().toISOString();
+  state.sync.message = "Synced";
+  state.auth.status = `Synced ${formatTime(state.sync.lastSyncedAt)}`;
+  saveSyncMeta();
+  renderAuthPanel();
+}
+
+async function pullCloudState() {
+  if (!state.auth.session?.user || !state.supabaseClient) return;
+
+  state.auth.status = "Checking sync...";
+  renderAuthPanel();
+
+  const { data, error } = await state.supabaseClient
+    .from(USER_DATA_TABLE)
+    .select("data, updated_at")
+    .eq("user_id", state.auth.session.user.id)
+    .maybeSingle();
+
+  if (error) {
+    state.auth.status = "Sync failed";
+    state.sync.message = error.message;
+    saveSyncMeta();
+    renderAuthPanel();
+    return;
+  }
+
+  if (!data) {
+    await saveCloudState();
+    return;
+  }
+
+  const cloudPayload = data.data || {};
+  const cloudUpdatedAt = cloudPayload.updatedAt || data.updated_at;
+  const localUpdatedAt = state.sync.localUpdatedAt;
+
+  if (localUpdatedAt && new Date(localUpdatedAt) > new Date(cloudUpdatedAt)) {
+    await saveCloudState();
+    return;
+  }
+
+  applySyncedState(cloudPayload, cloudUpdatedAt);
 }
 
 function uid(prefix) {
@@ -1256,6 +1446,12 @@ function formatDate(dateValue) {
   return `${month}/${day}/${String(year).slice(2)}`;
 }
 
+function formatTime(dateValue) {
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "just now";
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 function formatMoney(value) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -1648,8 +1844,153 @@ function closeSettings() {
   els.settingsBackdrop.hidden = true;
 }
 
+function createSupabaseClient() {
+  const createClient = window.supabase?.createClient;
+  if (!createClient) return null;
+
+  state.supabasePersisting = state.auth.keepLoggedIn;
+  return createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      persistSession: state.auth.keepLoggedIn,
+      storageKey: "swiped-supabase-auth"
+    }
+  });
+}
+
+function ensureSupabaseClient() {
+  if (state.supabaseClient && state.supabasePersisting === state.auth.keepLoggedIn) {
+    return state.supabaseClient;
+  }
+
+  state.supabaseClient = createSupabaseClient();
+  return state.supabaseClient;
+}
+
+async function initializeSupabase() {
+  const client = ensureSupabaseClient();
+  if (!client) {
+    state.auth.status = "Sync unavailable";
+    renderAuthPanel();
+    return;
+  }
+
+  const { data, error } = await client.auth.getSession();
+  if (error) {
+    state.auth.status = error.message;
+    renderAuthPanel();
+    return;
+  }
+
+  state.auth.session = data.session;
+  state.auth.status = data.session ? "Signed in" : "Sync is local only";
+  renderAuthPanel();
+  if (data.session) pullCloudState();
+
+  client.auth.onAuthStateChange((event, session) => {
+    state.auth.session = session;
+    state.auth.status = session ? "Signed in" : "Sync is local only";
+    renderAuthPanel();
+
+    if (session && ["SIGNED_IN", "TOKEN_REFRESHED", "INITIAL_SESSION"].includes(event)) {
+      pullCloudState();
+    }
+  });
+}
+
+function renderAuthPanel() {
+  if (!els.authStatus) return;
+
+  const signedIn = Boolean(state.auth.session?.user);
+  els.authSignedOut.hidden = signedIn;
+  els.authSignedIn.hidden = !signedIn;
+  els.authKeepInput.checked = state.auth.keepLoggedIn;
+  els.authStatus.textContent = state.auth.status || state.sync.message || "Sync is local only";
+  els.syncDot.className = `sync-dot${signedIn ? " is-online" : ""}${state.auth.status.includes("failed") ? " is-error" : ""}`;
+  els.authAccountEmail.textContent = signedIn ? state.auth.session.user.email || "Signed in" : "";
+  els.signInButton.disabled = state.auth.busy;
+  els.signUpButton.disabled = state.auth.busy;
+  els.signOutButton.disabled = state.auth.busy;
+  els.syncNowButton.disabled = state.auth.busy || !signedIn;
+}
+
+function readAuthForm() {
+  return {
+    email: els.authEmailInput.value.trim(),
+    password: els.authPasswordInput.value,
+    keepLoggedIn: els.authKeepInput.checked
+  };
+}
+
+async function submitAuthForm(mode) {
+  const { email, password, keepLoggedIn } = readAuthForm();
+  if (!email || password.length < 6) {
+    state.auth.status = "Enter email and 6+ character password";
+    renderAuthPanel();
+    return;
+  }
+
+  state.auth.keepLoggedIn = keepLoggedIn;
+  saveAuthSettings();
+  state.supabaseClient = null;
+  const client = ensureSupabaseClient();
+  if (!client) {
+    state.auth.status = "Sync unavailable";
+    renderAuthPanel();
+    return;
+  }
+
+  state.auth.busy = true;
+  state.auth.status = mode === "sign-up" ? "Creating account..." : "Signing in...";
+  renderAuthPanel();
+
+  const request = mode === "sign-up"
+    ? client.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.href.split("#")[0] }
+    })
+    : client.auth.signInWithPassword({ email, password });
+  const { data, error } = await request;
+
+  state.auth.busy = false;
+  if (error) {
+    state.auth.status = error.message;
+    renderAuthPanel();
+    return;
+  }
+
+  state.auth.session = data.session;
+  els.authPasswordInput.value = "";
+  state.auth.status = data.session ? "Signed in" : "Check your email to finish signup";
+  renderAuthPanel();
+  if (data.session) pullCloudState();
+}
+
+async function signOut() {
+  const client = ensureSupabaseClient();
+  if (!client) return;
+
+  state.auth.busy = true;
+  state.auth.status = "Signing out...";
+  renderAuthPanel();
+  const { error } = await client.auth.signOut();
+  state.auth.busy = false;
+  if (error) {
+    state.auth.status = error.message;
+    renderAuthPanel();
+    return;
+  }
+
+  state.auth.session = null;
+  state.auth.status = "Sync is local only";
+  renderAuthPanel();
+}
+
 function renderSettings() {
   const visibleCount = visibleSections().length;
+  renderAuthPanel();
   els.settingsList.replaceChildren(
     ...state.sections.map((section, index) => {
       const isHome = section.templateId === "home";
@@ -2034,6 +2375,17 @@ els.firstNameInput.addEventListener("input", () => {
   saveProfile();
   render();
 });
+els.authKeepInput.addEventListener("change", () => {
+  state.auth.keepLoggedIn = els.authKeepInput.checked;
+  saveAuthSettings();
+});
+els.signInButton.addEventListener("click", () => submitAuthForm("sign-in"));
+els.signUpButton.addEventListener("click", () => submitAuthForm("sign-up"));
+els.signOutButton.addEventListener("click", signOut);
+els.syncNowButton.addEventListener("click", pullCloudState);
+els.authPasswordInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") submitAuthForm("sign-in");
+});
 els.addPersonButton.addEventListener("click", () => addSectionFromTemplate("people"));
 els.addJobButton.addEventListener("click", () => addSectionFromTemplate("work"));
 els.settingsList.addEventListener("click", (event) => {
@@ -2062,6 +2414,13 @@ els.wheelScrubber.addEventListener("input", () => {
 });
 window.addEventListener("keydown", handleKeys);
 window.addEventListener("resize", renderWheel);
+window.addEventListener("focus", () => {
+  if (state.auth.session) pullCloudState();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state.auth.session) pullCloudState();
+});
 
 render();
+initializeSupabase();
 registerServiceWorker();
