@@ -760,8 +760,8 @@ function createIcon(section, className) {
   return icon;
 }
 
-function createIconGraphic(section) {
-  if (section.iconImage) {
+function createIconGraphic(section, useUploadedImage = true) {
+  if (useUploadedImage && section.iconImage) {
     const image = document.createElement("img");
     image.alt = "";
     image.src = section.iconImage;
@@ -785,12 +785,12 @@ function render() {
   const sections = visibleSections();
   const display = getDisplaySection(section);
   setAccent(section);
-  els.activeTitle.textContent = display.name;
+  renderActiveTitle(section, display);
   els.sectionKicker.textContent = display.kicker;
   renderSummaryHeadline(section, display);
   els.summaryText.textContent = display.brief;
   els.sectionCount.textContent = `${state.activeIndex + 1} of ${sections.length}`;
-  els.summaryIcon.replaceChildren(createIconGraphic(section));
+  els.summaryIcon.replaceChildren(createIconGraphic(section, !isTemplate(section, "people")));
 
   const metrics = getSummaryMetrics(section, display);
   els.metricStrip.replaceChildren(...metrics.slice(0, 3).map(createMetricTile));
@@ -803,6 +803,19 @@ function render() {
   renderDetail(display);
   renderWheel();
   renderWheelScrubber();
+}
+
+function renderActiveTitle(section, display) {
+  const isPeople = isTemplate(section, "people");
+  els.activeTitle.classList.toggle("is-photo-title", isPeople);
+  els.activeTitle.setAttribute("aria-label", display.name);
+
+  if (isPeople) {
+    els.activeTitle.replaceChildren(createIcon(section, "top-profile-photo"));
+    return;
+  }
+
+  els.activeTitle.textContent = display.name;
 }
 
 function getDisplaySection(section) {
